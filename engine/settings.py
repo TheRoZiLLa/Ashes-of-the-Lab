@@ -72,7 +72,7 @@ ZOMBIE_ATTACK_COOLDOWN = 1.2      # seconds
 ZOMBIE_KNOCKBACK_DURATION = 0.25  # seconds (stun after being hit)
 
 # ── Camera ─────────────────────────────────────────────────────────────────
-CAMERA_SMOOTHING = 6.0            # higher = snappier follow
+CAMERA_SMOOTHING = 8.0            # higher = snappier follow
 CAMERA_ZOOM = 1.25
 CAMERA_LOOKAHEAD_X = 100
 CAMERA_LOOKAHEAD_Y_DOWN = 80

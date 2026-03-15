@@ -10,7 +10,8 @@ Responsibilities:
 
 import sys
 import pygame
-from engine.settings import SCREEN_WIDTH, SCREEN_HEIGHT, BASE_WIDTH, BASE_HEIGHT, TITLE, FPS, BACKGROUND_COLOR
+from engine.settings import BASE_WIDTH, BASE_HEIGHT, TITLE, FPS, BACKGROUND_COLOR
+import engine.settings as settings
 from engine.core.input    import InputManager
 from engine.core.camera   import Camera
 from engine.world.level   import Level, build_demo_level
@@ -35,7 +36,7 @@ class Game:
 
     def __init__(self):
         pygame.init()
-        self._screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self._screen = pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT))
         pygame.display.set_caption(TITLE)
         self._clock  = pygame.time.Clock()
 
@@ -171,34 +172,39 @@ class Game:
 
         # Player
         self._player.draw(self._world_surface, self._camera)
+        
+        # Get dynamic screen and its size
+        screen = pygame.display.get_surface()
+        screen_w = screen.get_width()
+        screen_h = screen.get_height()
 
         # Scale and draw world to screen (maintaining aspect ratio with letterboxing)
         target_aspect = BASE_WIDTH / BASE_HEIGHT
-        screen_aspect = SCREEN_WIDTH / SCREEN_HEIGHT
+        screen_aspect = screen_w / screen_h
         
         if screen_aspect > target_aspect:
             # Window is wider than target; pillarbox (bars on sides)
-            scale = SCREEN_HEIGHT / BASE_HEIGHT
+            scale = screen_h / BASE_HEIGHT
             new_w = int(BASE_WIDTH * scale)
-            new_h = SCREEN_HEIGHT
-            offset_x = (SCREEN_WIDTH - new_w) // 2
+            new_h = screen_h
+            offset_x = (screen_w - new_w) // 2
             offset_y = 0
         else:
             # Window is taller than target; letterbox (bars on top/bottom)
-            scale = SCREEN_WIDTH / BASE_WIDTH
-            new_w = SCREEN_WIDTH
+            scale = screen_w / BASE_WIDTH
+            new_w = screen_w
             new_h = int(BASE_HEIGHT * scale)
             offset_x = 0
-            offset_y = (SCREEN_HEIGHT - new_h) // 2
+            offset_y = (screen_h - new_h) // 2
             
         scaled_world = pygame.transform.scale(self._world_surface, (new_w, new_h))
-        self._screen.fill((0, 0, 0)) # Clear with black for letterbox margins
-        self._screen.blit(scaled_world, (offset_x, offset_y))
+        screen.fill((0, 0, 0)) # Clear with black for letterbox margins
+        screen.blit(scaled_world, (offset_x, offset_y))
 
         # Syringe life HUD (top-left, shakes on damage, draws game-over overlay)
         # Note: We still draw the HUD to the full screen for crispiness
         self._hud.draw(
-            self._screen, dt, 
+            screen, dt, 
             show_bg_text=self.show_hud_bg, 
             camera_dx=self._camera.dx, camera_dy=self._camera.dy,
             weapon_mgr=self._player.weapons
@@ -206,8 +212,8 @@ class Game:
 
         # Debug overlay
         if self.show_debug:
-            self._debug.draw(self._screen, self._clock, self._player, self._level.enemies)
+            self._debug.draw(screen, self._clock, self._player, self._level.enemies)
 
-        self._pause_menu.draw(self._screen)
+        self._pause_menu.draw(screen)
 
         pygame.display.flip()

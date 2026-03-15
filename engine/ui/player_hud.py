@@ -359,17 +359,20 @@ class HealthSystem:
 
     def _draw_weapon_ui(self, screen: pygame.Surface, weapon_mgr, px: int, py: int) -> None:
         """Draw active weapon text and scaled boxes."""
+        screen_w = screen.get_width()
+        screen_h = screen.get_height()
+        
         w_text = weapon_mgr.active_weapon.get_ui_text()
         if w_text:
             text_surf = self._font_hint.render(w_text, True, (240, 240, 240))
             # Bottom left corner
-            vx, vy = 20 + px, SCREEN_HEIGHT - 40 + py
+            vx, vy = 20 + px, screen_h - 40 + py
             screen.blit(text_surf, (vx, vy))
 
         # Draw weapon icons
         box_spacing = 110
         base_x = 70 + px
-        base_y = SCREEN_HEIGHT - 120 + py
+        base_y = screen_h - 120 + py
 
         for wid, wname, img in [(1, "GUN", self._gun_img), (2, "KNIFE", self._knife_img)]:
             is_active = (weapon_mgr.active_id == wid)
@@ -404,13 +407,20 @@ class HealthSystem:
             screen.blit(lbl, (x + w//2 - lbl.get_width()//2, y + h + 5))
 
     def _draw_game_over(self, screen: pygame.Surface) -> None:
-        overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 185))
+        screen_w = screen.get_width()
+        screen_h = screen.get_height()
+        
+        overlay = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
         screen.blit(overlay, (0, 0))
-        t1 = self._font_go.render("YOU DIED", True, (220, 45, 45))
-        t2 = self._font_hint.render("Press  R  to restart", True, (170, 170, 170))
-        screen.blit(t1, t1.get_rect(center=(SCREEN_WIDTH  // 2, SCREEN_HEIGHT // 2 - 36)))
-        screen.blit(t2, t2.get_rect(center=(SCREEN_WIDTH  // 2, SCREEN_HEIGHT // 2 + 46)))
+
+        text_surf = self._font_large.render("YOU DIED", True, (255, 50, 50))
+        rect = text_surf.get_rect(center=(screen_w // 2, screen_h // 2 - 40))
+        screen.blit(text_surf, rect)
+
+        hint_surf = self._font_hint.render("Press 'R' to Restart", True, (200, 200, 200))
+        h_rect = hint_surf.get_rect(center=(screen_w // 2, screen_h // 2 + 20))
+        screen.blit(hint_surf, h_rect)
 
     # ── Asset loaders ────────────────────────────────────────────────────────
 

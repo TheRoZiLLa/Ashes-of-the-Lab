@@ -6,7 +6,7 @@ All tunable values are centralized here for easy tweaking.
 # ── Window ─────────────────────────────────────────────────────────────────
 SCREEN_WIDTH  = 1280
 SCREEN_HEIGHT = 720
-TITLE         = "Platformer Engine – Demo"
+TITLE         = "Ashes of the Lab - Demo"
 FPS           = 60
 BACKGROUND_COLOR = (15, 12, 20)   # deep dark purple
 
@@ -38,14 +38,21 @@ JUMP_BUFFER_TIME    = 0.12        # seconds before landing that jump input is bu
 PLAYER_MAX_HP  = 100
 PLAYER_INVINCIBILITY_DURATION = 0.6  # seconds of i-frames after being hit
 
-# ── Attack ─────────────────────────────────────────────────────────────────
-ATTACK_DAMAGE     = 25
-ATTACK_DURATION   = 0.18          # seconds  (hitbox lives this long)
-ATTACK_COOLDOWN   = 0.35          # seconds
-ATTACK_RANGE      = 70            # pixels  (width of hitbox)
-ATTACK_HEIGHT     = 36            # pixels  (height of hitbox)
-ATTACK_KNOCKBACK_X = 380          # px/s  (horizontal knockback)
-ATTACK_KNOCKBACK_Y = -250         # px/s  (upward knockback)
+# ── Weapons ────────────────────────────────────────────────────────────────
+KNIFE_DAMAGE       = 25
+KNIFE_DURATION     = 0.15          # seconds  (hitbox lives this long)
+KNIFE_COOLDOWN     = 0.35          # seconds
+KNIFE_RANGE        = 70            # pixels  (width of hitbox)
+KNIFE_HEIGHT       = 36            # pixels  (height of hitbox)
+KNIFE_KNOCKBACK_X  = 380           # px/s  (horizontal knockback)
+KNIFE_KNOCKBACK_Y  = -250          # px/s  (upward knockback)
+
+GUN_DAMAGE         = 15
+GUN_FIRE_RATE_SEMI = 0.2           # seconds per shot
+GUN_FIRE_RATE_AUTO = 0.1           # seconds per shot
+GUN_MAG_CAPACITY   = 20
+BULLET_SPEED       = 1200          # px/s
+BULLET_LIFETIME    = 1.0           # seconds
 
 # ── Enemy – Zombie ─────────────────────────────────────────────────────────
 ZOMBIE_WIDTH   = 30
@@ -62,6 +69,12 @@ ZOMBIE_KNOCKBACK_DURATION = 0.25  # seconds (stun after being hit)
 
 # ── Camera ─────────────────────────────────────────────────────────────────
 CAMERA_SMOOTHING = 8.0            # higher = snappier follow
+CAMERA_ZOOM = 1.25
+CAMERA_LOOKAHEAD_X = 100
+CAMERA_LOOKAHEAD_Y_DOWN = 80
+CAMERA_LOOKAHEAD_Y_UP = 40
+CAMERA_DASH_OFFSET = 150
+CAMERA_FOLLOW_INTENSITY = 0.2     # 0.0 = static center, 1.0 = full lookahead (motion sickness setting)
 
 # ── Health Bar ─────────────────────────────────────────────────────────────
 HEALTH_BAR_WIDTH   = 50

@@ -72,7 +72,7 @@ class CombatSystem:
         self._cooldown.reset()
         return True
 
-    def update(self, dt: float, enemies: list) -> None:
+    def update(self, dt: float, enemies: list, owner_rect: pygame.Rect = None, owner_facing: int = 1) -> None:
         """Tick timers and check enemy collisions."""
         self._cooldown.update(dt)
 
@@ -82,6 +82,14 @@ class CombatSystem:
         self._hitbox.timer.update(dt)
 
         if self._hitbox.active:
+            if owner_rect is not None:
+                self._hitbox.direction = owner_facing
+                if owner_facing >= 0:
+                    self._hitbox.rect.left = owner_rect.right
+                else:
+                    self._hitbox.rect.left = owner_rect.left - ATTACK_RANGE
+                self._hitbox.rect.centery = owner_rect.centery - ATTACK_HEIGHT // 2
+
             self._check_hits(enemies)
         else:
             self._hitbox = None

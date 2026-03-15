@@ -14,7 +14,7 @@ Features:
 import pygame
 from engine.entities.entity_base import Entity
 from engine.systems.health_system import HealthComponent
-from engine.systems.combat_system import CombatSystem
+from engine.systems.weapon_system import WeaponManager
 from engine.physics.physics_engine import PhysicsEngine
 from engine.core.timer import Timer
 from engine.settings import (
@@ -42,7 +42,7 @@ class Player(Entity):
 
         # ── Subsystems ───────────────────────────────────────────────────────
         self.health = HealthComponent(PLAYER_MAX_HP)
-        self.combat = CombatSystem()
+        self.weapons = WeaponManager()
         self.physics = PhysicsEngine()
 
         # ── State flags ──────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ class Player(Entity):
         self._update_timers(dt)
         self._handle_input(input_mgr)
         self._apply_movement(dt, platforms)
-        self.combat.update(dt, enemies)
+        self.weapons.update(dt, enemies, platforms, self.rect, self.facing)
         self._check_death()
 
     def _update_timers(self, dt: float) -> None:
@@ -114,9 +114,29 @@ class Player(Entity):
         if input_mgr.just_pressed(_pg.K_LSHIFT) or input_mgr.just_pressed(_pg.K_RSHIFT):
             self._try_dash()
 
+        # Weapon switching
+        if input_mgr.just_pressed(_pg.K_1):
+            self.weapons.switch_weapon(1)
+        if input_mgr.just_pressed(_pg.K_2):
+            self.weapons.switch_weapon(2)
+            
+        # Weapon actions
+        if input_mgr.just_pressed(_pg.K_f):
+            if hasattr(self.weapons.active_weapon, 'toggle_mode'):
+                self.weapons.active_weapon.toggle_mode()
+        if input_mgr.just_pressed(_pg.K_r):
+            if hasattr(self.weapons.active_weapon, 'reload'):
+                self.weapons.active_weapon.reload()
+
         # Attack input (left mouse button)
+        fired = False
         if input_mgr.mouse_just_pressed(1):
-            self.combat.begin_attack(self.rect, self.facing)
+            fired = self.weapons.active_weapon.attack(self.rect, self.facing, is_held=False)
+        elif input_mgr.mouse_is_held(1):
+            fired = self.weapons.active_weapon.attack(self.rect, self.facing, is_held=True)
+            
+        if fired and self.weapons.recoil_impulse != 0:
+            self.velocity[0] += self.weapons.recoil_impulse
 
     def _try_dash(self) -> None:
         if not self._dash_cooldown.expired or self._dashing:
@@ -234,5 +254,5 @@ class Player(Entity):
         eye_y = screen_rect.top + 10
         pygame.draw.circle(surface, (255, 255, 255), (eye_x, eye_y), 3)
 
-        # Draw attack hitbox
-        self.combat.draw(surface, camera)
+        # Draw active weapon effects/hitboxes
+        self.weapons.draw(surface, camera)

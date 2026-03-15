@@ -75,3 +75,10 @@ class InputManager:
     def mouse_just_pressed(self, button: int = 1) -> bool:
         """button: 1=left, 2=middle, 3=right (Pygame convention)."""
         return button in self.mouse_buttons_just_pressed
+
+    def mouse_is_held(self, button: int = 1) -> bool:
+        """Check if a mouse button is currently held down. 1=left, 2=middle, 3=right."""
+        # pygame.mouse.get_pressed() returns a tuple of 3 bools (L, M, R)
+        if 1 <= button <= 3:
+            return self.mouse_buttons[button - 1]
+        return False

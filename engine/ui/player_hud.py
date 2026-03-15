@@ -164,6 +164,9 @@ class HealthSystem:
         self.game_over:   bool = False
 
         self._shake = ShakeEffect()
+        
+        self.parallax_x = 0.0
+        self.parallax_y = 0.0
 
         # Animations
         self.anim_timers = [0.0] * MAX_LIVES
@@ -174,6 +177,10 @@ class HealthSystem:
         self._life_full  = self._load_life()
         self._life_empty = self._load_life_empty()
         self._vignette   = self._load_vignette()
+        
+        # Load weapon PNG assets
+        self._gun_img = self._load_image("ok49.png")
+        self._knife_img = self._load_image("kinfe.png")
         
         ew, eh = max(1, int(LIFE_ICON_W * 0.85)), max(1, int(LIFE_ICON_H * 0.85))
         self._life_empty_resting = pygame.transform.smoothscale(self._life_empty, (ew, eh))
@@ -232,10 +239,25 @@ class HealthSystem:
 
     # ── Draw ─────────────────────────────────────────────────────────────────
 
-    def draw(self, screen: pygame.Surface, dt: float, show_bg_text: bool = True) -> None:
+    def draw(self, screen: pygame.Surface, dt: float, 
+             show_bg_text: bool = True, 
+             camera_dx: float = 0.0, camera_dy: float = 0.0,
+             weapon_mgr=None) -> None:
         """Render HUD each frame. `dt` must be in seconds."""
+        if dt > 0:
+            target_px = -camera_dx * 2.5
+            target_py = -camera_dy * 2.5
+            
+            target_px = max(-20.0, min(20.0, target_px))
+            target_py = max(-20.0, min(20.0, target_py))
+
+            t = 1.0 - (1.0 / (1.0 + 12.0 * dt))
+            self.parallax_x += (target_px - self.parallax_x) * t
+            self.parallax_y += (target_py - self.parallax_y) * t
+
         sx, sy = self._shake.tick(dt)
-        hx, hy = HUD_X + sx, HUD_Y + sy
+        hx = HUD_X + sx + int(self.parallax_x)
+        hy = HUD_Y + sy + int(self.parallax_y)
 
         # Critical health vignette (pulsing)
         if self.lives == 1 and not self.game_over and self._vignette:
@@ -330,6 +352,56 @@ class HealthSystem:
         # Game-over overlay
         if self.game_over:
             self._draw_game_over(screen)
+            
+        # Weapon UI
+        if weapon_mgr:
+            self._draw_weapon_ui(screen, weapon_mgr, int(self.parallax_x), int(self.parallax_y))
+
+    def _draw_weapon_ui(self, screen: pygame.Surface, weapon_mgr, px: int, py: int) -> None:
+        """Draw active weapon text and scaled boxes."""
+        w_text = weapon_mgr.active_weapon.get_ui_text()
+        if w_text:
+            text_surf = self._font_hint.render(w_text, True, (240, 240, 240))
+            # Bottom left corner
+            vx, vy = 20 + px, SCREEN_HEIGHT - 40 + py
+            screen.blit(text_surf, (vx, vy))
+
+        # Draw weapon icons
+        box_spacing = 110
+        base_x = 70 + px
+        base_y = SCREEN_HEIGHT - 120 + py
+
+        for wid, wname, img in [(1, "GUN", self._gun_img), (2, "KNIFE", self._knife_img)]:
+            is_active = (weapon_mgr.active_id == wid)
+            scale = 1.3 if is_active else 0.8
+            
+            # Constrain size to a max of 60x60 base before scaling
+            if img:
+                iw, ih = img.get_size()
+                fit_scale = min(60.0 / iw, 60.0 / ih)
+                w = int(iw * fit_scale * scale)
+                h = int(ih * fit_scale * scale)
+            else:
+                w = int(40 * scale)
+                h = int(40 * scale)
+            
+            x = base_x + (wid - 1) * box_spacing
+            y = base_y - h // 2
+            
+            if img:
+                scaled_img = pygame.transform.smoothscale(img, (w, h))
+                if not is_active:
+                    scaled_img.set_alpha(150) # Dim inactive weapon
+                screen.blit(scaled_img, (x, y))
+            else:
+                # Fallback Box
+                color = (200, 200, 200) if is_active else (100, 100, 100)
+                pygame.draw.rect(screen, color, (x, y, w, h), 2)
+            
+            # Label below the icon
+            color = (240, 240, 240) if is_active else (150, 150, 150)
+            lbl = self._font_small.render(wname, True, color)
+            screen.blit(lbl, (x + w//2 - lbl.get_width()//2, y + h + 5))
 
     def _draw_game_over(self, screen: pygame.Surface) -> None:
         overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
@@ -390,4 +462,14 @@ class HealthSystem:
                 return pygame.transform.smoothscale(img, (SCREEN_WIDTH, SCREEN_HEIGHT))
             except Exception as e:
                 print(f"[PlayerHUD] vignette.png: {e}")
+        return None
+        
+    @staticmethod
+    def _load_image(filename: str) -> pygame.Surface | None:
+        path = os.path.join(ASSETS_DIR, filename)
+        if os.path.exists(path):
+            try:
+                return pygame.image.load(path).convert_alpha()
+            except Exception as e:
+                print(f"[PlayerHUD] {filename}: {e}")
         return None

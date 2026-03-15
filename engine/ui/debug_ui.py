@@ -46,8 +46,15 @@ class DebugUI:
         max_hp   = player.health.max_hp
         n_alive  = sum(1 for e in enemies if not e.dead)
         dashing  = "DASH" if player._dashing else ""
-        attacking= "ATK"  if player.combat.is_attacking else ""
         invic    = "I-FRAME" if player.is_invincible else ""
+        
+        # Determine if attacking based on current weapon
+        attacking = ""
+        weap = player.weapons.active_weapon
+        if hasattr(weap, "_hitbox") and weap._hitbox is not None and weap._hitbox.active:
+            attacking = "ATK"
+        elif hasattr(weap, "_muzzle_flash_timer") and not weap._muzzle_flash_timer.expired:
+            attacking = "ATK"
 
         lines = [
             f"FPS      : {fps:5.1f}",

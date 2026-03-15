@@ -61,6 +61,10 @@ class Player(Entity):
         self._dashing        = False
         self._dash_direction = 1
 
+        # ── Buff state ───────────────────────────────────────────────────────
+        self._buff_timer     = Timer(0.0)
+        self.buff_active     = False
+
         # ── Signal flags (consumed by game.py each frame) ────────────────────
         self.was_hit_this_frame = False   # set by receive_hit(); cleared in game.py
 
@@ -88,6 +92,9 @@ class Player(Entity):
         self._dash_timer.update(dt)
         self._dash_cooldown.update(dt)
         self._invincibility_timer.update(dt)
+        self._buff_timer.update(dt)
+
+        self.buff_active = not self._buff_timer.expired
 
         # End dash when timer expires
         if self._dashing and self._dash_timer.expired:
@@ -131,9 +138,9 @@ class Player(Entity):
         # Attack input (left mouse button)
         fired = False
         if input_mgr.mouse_just_pressed(1):
-            fired = self.weapons.active_weapon.attack(self.rect, self.facing, is_held=False)
+            fired = self.weapons.active_weapon.attack(self.rect, self.facing, is_held=False, is_buffed=self.buff_active)
         elif input_mgr.mouse_is_held(1):
-            fired = self.weapons.active_weapon.attack(self.rect, self.facing, is_held=True)
+            fired = self.weapons.active_weapon.attack(self.rect, self.facing, is_held=True, is_buffed=self.buff_active)
             
         if fired and self.weapons.recoil_impulse != 0:
             self.velocity[0] += self.weapons.recoil_impulse
@@ -186,7 +193,8 @@ class Player(Entity):
         self._try_jump()
 
     def _apply_horizontal(self, dt: float) -> None:
-        target = self._move_x * PLAYER_RUN_SPEED
+        speed_mult = 1.05 if self.buff_active else 1.0
+        target = self._move_x * (PLAYER_RUN_SPEED * speed_mult)
         accel  = PLAYER_ACCELERATION if self.on_ground else PLAYER_AIR_ACCEL
         fric   = PLAYER_FRICTION      if self.on_ground else PLAYER_AIR_FRICTION
 
@@ -234,6 +242,12 @@ class Player(Entity):
 
     def _check_death(self) -> None:
         pass   # Death is now managed by the HUD (lives == 0)
+
+    # ── Buff / Soul Mechanics ────────────────────────────────────────────────
+    def apply_buff(self, duration: float) -> None:
+        """Apply temporary stats buff."""
+        self._buff_timer = Timer(duration, auto_start=True)
+        self.buff_active = True
 
     # ── Draw ─────────────────────────────────────────────────────────────────
     def draw(self, surface: pygame.Surface, camera) -> None:

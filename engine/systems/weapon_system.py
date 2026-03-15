@@ -27,14 +27,14 @@ class Bullet:
         self.timer = Timer(BULLET_LIFETIME, auto_start=True)
         self.dead = False
 
-    def update(self, dt: float, enemies: list, platforms: list) -> None:
+    def update(self, dt: float, enemies: list, platforms: list) -> bool:
         if self.dead:
-            return
+            return False
             
         self.timer.update(dt)
         if self.timer.expired:
             self.dead = True
-            return
+            return False
 
         # Move
         self.rect.x += self.velocity_x * dt
@@ -43,7 +43,7 @@ class Bullet:
         for p in platforms:
             if self.rect.colliderect(p.rect):
                 self.dead = True
-                return
+                return False
 
         # Check collision with enemies
         for enemy in enemies:
@@ -51,14 +51,17 @@ class Bullet:
                 continue
             if self.rect.colliderect(enemy.rect):
                 enemy.health.take_damage(GUN_DAMAGE)
+                killed = False
                 if enemy.health.is_dead:
                     enemy.die()
+                    killed = True
                 else:
                     enemy.velocity[0] = 150 * self.direction
                     enemy.velocity[1] = -100
                     enemy.receive_knockback()
                 self.dead = True
-                return
+                return killed
+        return False
 
     def draw(self, surface: pygame.Surface, camera) -> None:
         if self.dead:
@@ -82,7 +85,7 @@ class Weapon:
     def draw(self, surface: pygame.Surface, camera) -> None:
         pass
 
-    def attack(self, owner_rect: pygame.Rect, owner_facing: int, is_held: bool = False) -> bool:
+    def attack(self, owner_rect: pygame.Rect, owner_facing: int, is_held: bool = False, is_buffed: bool = False) -> bool:
         """Trigger the weapon attack. Returns True if successfully fired/swung."""
         return False
         
@@ -110,8 +113,9 @@ class Knife(Weapon):
         self._hitbox: AttackHitbox | None = None
         self._cooldown = Timer(KNIFE_COOLDOWN)
         self.hits_this_frame = 0
+        self.kills_this_frame = 0
 
-    def attack(self, owner_rect: pygame.Rect, owner_facing: int, is_held: bool = False) -> bool:
+    def attack(self, owner_rect: pygame.Rect, owner_facing: int, is_held: bool = False, is_buffed: bool = False) -> bool:
         if is_held:  # Knife doesn't auto-swing
             return False
         if not self._cooldown.expired:
@@ -126,12 +130,15 @@ class Knife(Weapon):
         hitbox_rect = pygame.Rect(hx, hy, KNIFE_RANGE, KNIFE_HEIGHT)
         self._hitbox = AttackHitbox(hitbox_rect, owner_facing)
         
-        self._cooldown.reset()
+        # 10% faster attack speed = 10% shorter cooldown
+        cd_multiplier = 0.9 if is_buffed else 1.0
+        self._cooldown = Timer(KNIFE_COOLDOWN * cd_multiplier, auto_start=True)
         return True
 
     def update(self, dt: float, enemies: list, platforms: list, owner_rect: pygame.Rect, owner_facing: int) -> None:
         self._cooldown.update(dt)
         self.hits_this_frame = 0
+        self.kills_this_frame = 0
 
         if self._hitbox is None:
             return
@@ -156,6 +163,7 @@ class Knife(Weapon):
                     enemy.health.take_damage(KNIFE_DAMAGE)
                     if enemy.health.is_dead:
                         enemy.die()
+                        self.kills_this_frame += 1
                     else:
                         kx = KNIFE_KNOCKBACK_X * self._hitbox.direction
                         enemy.velocity[0] = kx
@@ -190,6 +198,7 @@ class Gun(Weapon):
         self._muzzle_flash_timer = Timer(0.05)
         self._flash_pos = (0, 0)
         self._flash_dir = 1
+        self.kills_this_frame = 0
         
     def get_ui_text(self) -> str:
         return f"Mode: {self.mode}   Bullet: {self.current_bullets}/{self.total_bullets}   Mag: {self.magazines}"
@@ -216,7 +225,7 @@ class Gun(Weapon):
             self.current_bullets += reload_amount
             self.total_bullets -= reload_amount
             
-    def attack(self, owner_rect: pygame.Rect, owner_facing: int, is_held: bool = False) -> bool:
+    def attack(self, owner_rect: pygame.Rect, owner_facing: int, is_held: bool = False, is_buffed: bool = False) -> bool:
         if is_held and self.mode == 1:
             return False  # Semi-auto requires clicking, not holding
             
@@ -228,7 +237,11 @@ class Gun(Weapon):
             
         # Fire
         self.current_bullets -= 1
-        self._cooldown.reset()
+        
+        # 5% faster attack speed = 5% shorter cooldown
+        cd_multiplier = 0.95 if is_buffed else 1.0
+        base_rate = GUN_FIRE_RATE_AUTO if self.mode == 2 else GUN_FIRE_RATE_SEMI
+        self._cooldown = Timer(base_rate * cd_multiplier, auto_start=True)
         
         bx = owner_rect.right if owner_facing >= 0 else owner_rect.left
         by = owner_rect.centery - 6
@@ -248,9 +261,11 @@ class Gun(Weapon):
         self._muzzle_flash_timer.update(dt)
         self.wants_screen_shake = False
         self.recoil_impulse = 0.0
+        self.kills_this_frame = 0
         
         for b in self.bullets:
-            b.update(dt, enemies, platforms)
+            if b.update(dt, enemies, platforms):
+                self.kills_this_frame += 1
             
         self.bullets = [b for b in self.bullets if not b.dead]
         
@@ -276,6 +291,7 @@ class WeaponManager:
             2: Knife()
         }
         self.active_id = 1
+        self.kills_this_frame = 0
         
     @property
     def active_weapon(self) -> Weapon:
@@ -302,8 +318,11 @@ class WeaponManager:
             
     def update(self, dt: float, enemies: list, platforms: list, owner_rect: pygame.Rect, owner_facing: int) -> None:
         # We always update all weapons so bullets keep flying and cooldowns tick
+        self.kills_this_frame = 0
         for w in self.weapons.values():
             w.update(dt, enemies, platforms, owner_rect, owner_facing)
+            if hasattr(w, 'kills_this_frame'):
+                self.kills_this_frame += w.kills_this_frame
             
     def draw(self, surface: pygame.Surface, camera) -> None:
         for w in self.weapons.values():

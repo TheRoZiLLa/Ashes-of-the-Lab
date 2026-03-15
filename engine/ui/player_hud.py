@@ -26,9 +26,8 @@ import math
 import pygame
 from engine.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 
-# ── HUD constants ─────────────────────────────────────────────────────────────
 MAX_LIVES    = 5
-HITS_TO_HEAL = 5
+SOULS_TO_HEAL = 5
 
 HUD_X, HUD_Y  = -50, 24      # top-left anchor (before shake)
 
@@ -160,7 +159,7 @@ class HealthSystem:
 
     def __init__(self):
         self.lives:       int  = MAX_LIVES
-        self.hit_counter: int  = 0
+        self.soul_count:  int  = 0
         self.game_over:   bool = False
 
         self._shake = ShakeEffect()
@@ -182,6 +181,11 @@ class HealthSystem:
         self._gun_img = self._load_image("ok49.png")
         self._knife_img = self._load_image("kinfe.png")
         
+        # Soul animation setup
+        self._soul_frames = self._load_soul_frames()
+        self._soul_anim_timer = 0.0
+        self._soul_frame_idx = 0
+        
         ew, eh = max(1, int(LIFE_ICON_W * 0.85)), max(1, int(LIFE_ICON_H * 0.85))
         self._life_empty_resting = pygame.transform.smoothscale(self._life_empty, (ew, eh))
 
@@ -189,6 +193,7 @@ class HealthSystem:
         self._font_go    = pygame.font.SysFont("Consolas", 64, bold=True)
         self._font_hint  = pygame.font.SysFont("Consolas", 22)
         self._font_small = pygame.font.SysFont("Consolas", 16)
+        self._font_soul  = pygame.font.SysFont("Consolas", 24, bold=True)
 
     # ── API ──────────────────────────────────────────────────────────────────
 
@@ -208,14 +213,28 @@ class HealthSystem:
         if self.lives == 0:
             self.game_over = True
 
-    def add_hit(self) -> None:
-        """Register 1 enemy hit. Every HITS_TO_HEAL hits restores 1 life."""
+    def add_soul(self) -> None:
+        """Register 1 enemy kill. Max 5 souls."""
         if self.game_over:
             return
-        self.hit_counter += 1
-        if self.hit_counter >= HITS_TO_HEAL:
+        if self.soul_count < SOULS_TO_HEAL:
+            self.soul_count += 1
+            
+    def can_consume_souls(self) -> bool:
+        return self.soul_count >= SOULS_TO_HEAL
+        
+    def consume_souls_for_heal(self) -> bool:
+        if self.can_consume_souls() and self.lives < MAX_LIVES:
+            self.soul_count -= SOULS_TO_HEAL
             self.heal()
-            self.hit_counter = 0
+            return True
+        return False
+        
+    def consume_souls(self) -> bool:
+        if self.can_consume_souls():
+            self.soul_count -= SOULS_TO_HEAL
+            return True
+        return False
 
     def heal(self) -> None:
         """Restore 1 life (capped at MAX_LIVES)."""
@@ -230,7 +249,7 @@ class HealthSystem:
     def reset(self) -> None:
         """Restore to full health — call this on level restart."""
         self.lives       = MAX_LIVES
-        self.hit_counter = 0
+        self.soul_count  = 0
         self.game_over   = False
 
     @property
@@ -353,9 +372,42 @@ class HealthSystem:
         if self.game_over:
             self._draw_game_over(screen)
             
+        # Draw Soul counter
+        self._draw_soul_counter(screen, hx, hy, dt)
+            
         # Weapon UI
         if weapon_mgr:
             self._draw_weapon_ui(screen, weapon_mgr, int(self.parallax_x), int(self.parallax_y))
+
+    def _draw_soul_counter(self, screen: pygame.Surface, hx: int, hy: int, dt: float) -> None:
+        """Draw the animated soul orb and the soul count text below the health bar."""
+        if not self._soul_frames:
+            return
+            
+        # Update animation (100ms per frame according to soul.json)
+        self._soul_anim_timer += dt
+        if self._soul_anim_timer >= 0.1:
+            self._soul_anim_timer -= 0.1
+            self._soul_frame_idx = (self._soul_frame_idx + 1) % len(self._soul_frames)
+            
+        frame = self._soul_frames[self._soul_frame_idx]
+        
+        # Position below the health bar
+        soul_x = hx + ICON_OFFSET_X
+        soul_y = hy + ICON_OFFSET_Y + LIFE_ICON_H + 30
+        
+        # Scaled down to match UI aesthetics
+        sw, sh = int(frame.get_width() * 0.6), int(frame.get_height() * 0.6)
+        scaled_frame = pygame.transform.smoothscale(frame, (sw, sh))
+        
+        screen.blit(scaled_frame, (soul_x, soul_y))
+        
+        # Draw the text label next to the orb
+        txt = self._font_soul.render(str(self.soul_count), True, (240, 255, 255))
+        # Draw a small shadow behind the text
+        shadow = self._font_soul.render(str(self.soul_count), True, (0, 0, 0))
+        screen.blit(shadow, (soul_x + sw + 12, soul_y + sh // 2 - txt.get_height() // 2 + 2))
+        screen.blit(txt, (soul_x + sw + 10, soul_y + sh // 2 - txt.get_height() // 2))
 
     def _draw_weapon_ui(self, screen: pygame.Surface, weapon_mgr, px: int, py: int) -> None:
         """Draw active weapon text and scaled boxes."""
@@ -414,7 +466,7 @@ class HealthSystem:
         overlay.fill((0, 0, 0, 180))
         screen.blit(overlay, (0, 0))
 
-        text_surf = self._font_large.render("YOU DIED", True, (255, 50, 50))
+        text_surf = self._font_go.render("YOU DIED", True, (255, 50, 50))
         rect = text_surf.get_rect(center=(screen_w // 2, screen_h // 2 - 40))
         screen.blit(text_surf, rect)
 
@@ -483,3 +535,20 @@ class HealthSystem:
             except Exception as e:
                 print(f"[PlayerHUD] {filename}: {e}")
         return None
+
+    @staticmethod
+    def _load_soul_frames() -> list[pygame.Surface]:
+        path = os.path.join(ASSETS_DIR, "soul.png")
+        frames = []
+        if os.path.exists(path):
+            try:
+                sheet = pygame.image.load(path).convert_alpha()
+                # From soul.json: 8 frames, each 68x85, side-by-side
+                for i in range(8):
+                    rect = pygame.Rect(i * 68, 0, 68, 85)
+                    frame_surf = pygame.Surface((68, 85), pygame.SRCALPHA)
+                    frame_surf.blit(sheet, (0, 0), rect)
+                    frames.append(frame_surf)
+            except Exception as e:
+                print(f"[PlayerHUD] soul.png: {e}")
+        return frames

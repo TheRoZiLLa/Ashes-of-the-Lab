@@ -14,7 +14,7 @@ from engine.settings import BASE_WIDTH, BASE_HEIGHT, TITLE, FPS, BACKGROUND_COLO
 import engine.settings as settings
 from engine.core.input    import InputManager
 from engine.core.camera   import Camera
-from engine.world.level   import Level, build_demo_level
+from engine.world.level_from_file import build_level_from_file
 from engine.entities.player import Player
 from engine.ui.debug_ui   import DebugUI
 from engine.ui.player_hud import HealthSystem as PlayerHUD
@@ -59,7 +59,7 @@ class Game:
 
     # ── Level / reset ─────────────────────────────────────────────────────────
     def _load_level(self) -> None:
-        self._level  = build_demo_level()
+        self._level  = build_level_from_file()
         self._player = Player(*self._level.player_spawn)
         self._camera = Camera(self._level.width, self._level.height, self._world_width, self._world_height)
         self._hud.reset()          # restore lives + hit counter on restart
@@ -105,6 +105,16 @@ class Game:
                 # Still draw so the YOU DIED overlay is visible
                 self._draw(dt)
                 continue
+                
+            # Manual Heal (Q) and Buff (E since R is reload)
+            if self._input.just_pressed(pygame.K_q):
+                if self._hud.can_consume_souls() and self._hud.lives < 5:
+                    self._hud.consume_souls_for_heal()
+                    
+            if self._input.just_pressed(pygame.K_e):
+                if self._hud.can_consume_souls():
+                    if self._hud.consume_souls():
+                        self._player.apply_buff(5.0)
 
             # Pause Menu logic
             if self._pause_menu.is_active:
@@ -131,10 +141,13 @@ class Game:
             self._level.enemies,
         )
 
-        # Tally new enemy hits → feed into HUD
-        for _ in range(self._player.weapons.hits_this_frame):
-            self._hud.add_hit()
+        # Screen shake on successful hit
+        if self._player.weapons.hits_this_frame > 0:
             self._camera.start_shake(0.2, 5.0)
+
+        # Collect souls from kills
+        for _ in range(self._player.weapons.kills_this_frame):
+            self._hud.add_soul()
 
         if self._player.weapons.wants_screen_shake:
             self._camera.start_shake(0.1, 4.0)

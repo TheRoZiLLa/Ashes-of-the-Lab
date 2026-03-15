@@ -4,11 +4,15 @@ All tunable values are centralized here for easy tweaking.
 """
 
 # ── Window ─────────────────────────────────────────────────────────────────
-SCREEN_WIDTH  = 1280
-SCREEN_HEIGHT = 720
+SCREEN_WIDTH  = 1920
+SCREEN_HEIGHT = 1080
 TITLE         = "Ashes of the Lab - Demo"
-FPS           = 60
+FPS           = 120
 BACKGROUND_COLOR = (15, 12, 20)   # deep dark purple
+
+# Base internal resolution (the game logic and world size are built for this)
+BASE_WIDTH = 1280
+BASE_HEIGHT = 720
 
 # ── Physics ────────────────────────────────────────────────────────────────
 GRAVITY         = 1800            # pixels / s²  (applied every frame)
@@ -68,7 +72,7 @@ ZOMBIE_ATTACK_COOLDOWN = 1.2      # seconds
 ZOMBIE_KNOCKBACK_DURATION = 0.25  # seconds (stun after being hit)
 
 # ── Camera ─────────────────────────────────────────────────────────────────
-CAMERA_SMOOTHING = 8.0            # higher = snappier follow
+CAMERA_SMOOTHING = 6.0            # higher = snappier follow
 CAMERA_ZOOM = 1.25
 CAMERA_LOOKAHEAD_X = 100
 CAMERA_LOOKAHEAD_Y_DOWN = 80

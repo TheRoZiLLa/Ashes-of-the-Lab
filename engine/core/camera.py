@@ -45,6 +45,8 @@ class Camera:
         self._shake_magnitude = 0.0
         self.shake_offset_x = 0
         self.shake_offset_y = 0
+        
+        self._current_lookahead_x = 0.0
 
     def start_shake(self, duration: float, magnitude: float) -> None:
         self._shake_duration = duration
@@ -71,9 +73,13 @@ class Camera:
             self.shake_offset_x += int(math.sin(now * 80) * ambient_shake)
             self.shake_offset_y += int(math.cos(now * 95) * (ambient_shake * 0.8))
 
-        offset_x = CAMERA_LOOKAHEAD_X * facing
+        desired_offset_x = CAMERA_LOOKAHEAD_X * facing
         if is_dashing:
-            offset_x += CAMERA_DASH_OFFSET * facing
+            desired_offset_x += CAMERA_DASH_OFFSET * facing
+
+        # Smooth the lookahead separately so snapping facing doesn't whip the camera
+        lookahead_t = 1.0 - (1.0 / (1.0 + 4.0 * dt)) # custom lookahead smoothing rate
+        self._current_lookahead_x += (desired_offset_x - self._current_lookahead_x) * lookahead_t
 
         offset_y = 0
         if velocity[1] > 200:
@@ -82,7 +88,7 @@ class Camera:
             offset_y -= CAMERA_LOOKAHEAD_Y_UP
 
         # Apply motion sickness intensity setting
-        offset_x *= CAMERA_FOLLOW_INTENSITY
+        offset_x = self._current_lookahead_x * CAMERA_FOLLOW_INTENSITY
         offset_y *= CAMERA_FOLLOW_INTENSITY
 
         # Desired top-left so target is screen-centred
